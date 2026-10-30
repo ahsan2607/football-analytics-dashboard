@@ -11,4 +11,4 @@ import streamlit as st
 
 def render(df):
     st.subheader("Attacking & Finishing")
-    st.info("Modul ini belum diisi — dikerjakan oleh Anggota 1.")
+    st.info("This module is not implemented yet — work in progress (Member 1).")

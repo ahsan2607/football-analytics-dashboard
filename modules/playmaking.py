@@ -11,4 +11,4 @@ import streamlit as st
 
 def render(df):
     st.subheader("Passing & Playmaking")
-    st.info("Modul ini belum diisi — dikerjakan oleh Anggota 2.")
+    st.info("This module is not implemented yet — work in progress (Member 2).")

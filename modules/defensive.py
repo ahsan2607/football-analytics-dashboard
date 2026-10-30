@@ -11,4 +11,4 @@ import streamlit as st
 
 def render(df):
     st.subheader("Defensive Workrate")
-    st.info("Modul ini belum diisi — dikerjakan oleh Anggota 3.")
+    st.info("This module is not implemented yet — work in progress (Member 3).")

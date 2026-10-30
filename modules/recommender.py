@@ -31,6 +31,32 @@ POSITION_FEATURES = {
 
 MIN_NINETIES_FOR_SIMILARITY = 5  # ~450 menit, ambang lebih longgar dari filter global
 
+# label yang dibaca manusia untuk tiap nama kolom fitur mentah, dipakai di
+# sumbu radar chart dan ringkasan cluster (menghindari singkatan FBref mentah)
+FEATURE_LABELS = {
+    "goals": "Goals",
+    "xg": "Expected Goals (xG)",
+    "npxg": "Non-Penalty xG",
+    "shots": "Shots",
+    "shots_on_target": "Shots on Target",
+    "sca": "Shot-Creating Actions",
+    "gca": "Goal-Creating Actions",
+    "prog_carries": "Progressive Carries",
+    "prog_passes": "Progressive Passes",
+    "key_passes": "Key Passes",
+    "xag": "Expected Assisted Goals (xAG)",
+    "tackles": "Tackles",
+    "interceptions": "Interceptions",
+    "tackles_interceptions": "Tackles + Interceptions",
+    "clearances": "Clearances",
+    "recoveries": "Ball Recoveries",
+    "saves": "Saves",
+    "save_pct": "Save %",
+    "cs_pct": "Clean Sheet %",
+    "ga90": "Goals Against / 90",
+    "psxg": "Post-Shot xG (PSxG)",
+}
+
 
 def _per90(df: pd.DataFrame, cols: list) -> pd.DataFrame:
     nineties = df["nineties"].replace(0, np.nan)
@@ -69,7 +95,7 @@ def _build_similarity(df: pd.DataFrame, pos: str):
 
 
 def _radar_chart(subset, feat_df, idx_a, idx_b, label_a, label_b):
-    cats = feat_df.columns.tolist()
+    cats = [FEATURE_LABELS.get(c, c) for c in feat_df.columns.tolist()]
     row_a = feat_df.iloc[idx_a]
     row_b = feat_df.iloc[idx_b]
     max_vals = feat_df.max().replace(0, 1)
@@ -91,39 +117,59 @@ def _radar_chart(subset, feat_df, idx_a, idx_b, label_a, label_b):
         polar=dict(radialaxis=dict(visible=True, range=[0, 100], showticklabels=False)),
         showlegend=True,
         height=420,
-        title="Perbandingan profil statistik (relatif terhadap pemain sekelompok posisi, per-90 menit)",
+        title="Stat profile comparison (relative to players in the same position group, per 90 minutes)",
     )
     return fig
+
+
+def _describe_clusters(subset, scaled, features, top_k=2):
+    """Untuk tiap cluster, cari fitur dengan rata-rata z-score tertinggi agar
+    pengguna tahu gaya main apa yang menonjol — bukan cuma label angka 0-4."""
+    scaled_df = pd.DataFrame(scaled, columns=features)
+    scaled_df["cluster"] = subset["cluster"].values
+    cluster_means = scaled_df.groupby("cluster")[features].mean()
+
+    rows = []
+    counts = subset["cluster"].value_counts()
+    for cluster_id, row in cluster_means.iterrows():
+        top_features = row.sort_values(ascending=False).head(top_k).index.tolist()
+        traits = ", ".join(FEATURE_LABELS.get(f, f) for f in top_features)
+        rows.append({
+            "Cluster": int(cluster_id),
+            "Players": int(counts.get(cluster_id, 0)),
+            "Stands out in": traits,
+        })
+    return pd.DataFrame(rows).sort_values("Cluster").reset_index(drop=True)
 
 
 def render(df):
     st.subheader("ML Scouting & Similarity")
     st.caption(
-        "Cari pemain dengan profil statistik paling mirip — dihitung per posisi, "
-        "dinormalisasi per-90 menit, lintas liga."
+        "Find players with the closest statistical profile — computed per position, "
+        "normalized per 90 minutes, across leagues."
     )
 
     available_pos = [p for p in ["FW", "MF", "DF", "GK"] if (df["pos"] == p).sum() >= 2]
     if not available_pos:
-        st.warning("Data pemain pada filter saat ini terlalu sedikit untuk analisis kemiripan.")
+        st.warning("Not enough players under the current filters for similarity analysis.")
         return
 
     col_pos, col_player = st.columns([1, 2])
     with col_pos:
-        pos_choice = st.selectbox("Posisi", available_pos)
+        pos_choice = st.selectbox("Position", available_pos)
 
     subset, sim_matrix, scaled, features = _build_similarity(df, pos_choice)
 
     if sim_matrix is None:
-        st.warning(f"Tidak cukup pemain posisi {pos_choice} (menit main ≥ {MIN_NINETIES_FOR_SIMILARITY * 90}) pada filter saat ini.")
+        st.warning(f"Not enough {pos_choice} players (minutes ≥ {MIN_NINETIES_FOR_SIMILARITY * 90}) under the current filters.")
         return
 
     player_options = subset["player"] + " (" + subset["team"] + ", " + subset["league"] + ")"
     with col_player:
-        selected_label = st.selectbox("Pemain acuan", player_options.tolist())
+        selected_label = st.selectbox("Reference player", player_options.tolist())
     selected_idx = player_options.tolist().index(selected_label)
 
-    top_n = st.slider("Jumlah rekomendasi", 3, 15, 5)
+    top_n = st.slider("Number of recommendations", 3, 15, 5)
 
     sims = sim_matrix[selected_idx]
     order = np.argsort(-sims)
@@ -132,29 +178,38 @@ def render(df):
     result = subset.iloc[order][["player", "team", "league", "nineties"]].copy()
     result["similarity"] = [round(float(sims[i]), 3) for i in order]
     result = result.rename(columns={
-        "player": "Pemain", "team": "Tim", "league": "Liga",
-        "nineties": "90 Menit Dimainkan", "similarity": "Skor Kemiripan",
+        "player": "Player", "team": "Team", "league": "League",
+        "nineties": "Full Matches Played (90-min equiv.)", "similarity": "Similarity Score",
     })
     st.dataframe(result, use_container_width=True, hide_index=True)
 
     if order:
         feat_df = _per90(subset, features)
-        compare_idx = order[0]
+        compare_labels = [player_options.tolist()[i] for i in order]
+        compare_label = st.selectbox("Compare reference player against", compare_labels)
+        compare_idx = order[compare_labels.index(compare_label)]
         fig = _radar_chart(
             subset, feat_df, selected_idx, compare_idx,
             subset.iloc[selected_idx]["player"], subset.iloc[compare_idx]["player"],
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    with st.expander("Tipe peran (K-Means cluster) pada posisi ini"):
-        cluster_counts = subset["cluster"].value_counts().sort_index()
-        st.bar_chart(cluster_counts)
+    with st.expander("Playing styles (K-Means clusters) for this position"):
+        st.caption(
+            "K-Means grouped players at this position into clusters purely from their "
+            "statistical profile (no inherent names — cluster IDs are arbitrary). "
+            "Each row below shows how many players fall into the cluster and which "
+            "stats stand out the most for that group."
+        )
+        cluster_summary = _describe_clusters(subset, scaled, features)
+        st.dataframe(cluster_summary, use_container_width=True, hide_index=True)
+        st.bar_chart(subset["cluster"].value_counts().sort_index())
 
     top_match = subset.iloc[order[0]]["player"] if order else None
     st.markdown("**Key Insight**")
     if top_match:
         st.info(
-            f"Pemain dengan profil statistik paling mirip **{selected_label}** pada posisi {pos_choice} "
-            f"adalah **{top_match}** (skor kemiripan {result.iloc[0]['Skor Kemiripan']}). "
-            "Gunakan fitur ini untuk mencari pengganti pemain lintas liga dengan gaya main sebanding."
+            f"The player with the closest statistical profile to **{selected_label}** at {pos_choice} "
+            f"is **{top_match}** (similarity score {result.iloc[0]['Similarity Score']}). "
+            "Use this to find a cross-league replacement with a comparable playing style."
         )
