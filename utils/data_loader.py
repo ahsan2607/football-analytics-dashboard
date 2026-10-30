@@ -39,11 +39,11 @@ RENAME_MAP = {
     "90s": "nineties",
     "gls": "goals",
     "ast": "assists",
-    "g_a": "goals_assists",
+    "g_plus_a": "goals_assists",
     "xg": "xg",
     "npxg": "npxg",
     "xag": "xag",
-    "npxg_xag": "npxg_xag",
+    "npxg_plus_xag": "npxg_xag",
     "sh": "shots",
     "sot": "shots_on_target",
     "prgc": "prog_carries",
@@ -56,7 +56,7 @@ RENAME_MAP = {
     "gca90": "gca_per90",
     "tkl": "tackles",
     "int": "interceptions",
-    "tkl_int": "tackles_interceptions",
+    "tkl_plus_int": "tackles_interceptions",
     "clr": "clearances",
     "err": "errors",
     "recov": "recoveries",
@@ -68,10 +68,27 @@ _POS_MAP = {"FW": "FW", "MF": "MF", "DF": "DF", "GK": "GK"}
 
 def _snake_case(col: str) -> str:
     col = col.strip()
-    col = col.replace("%", "_pct").replace("+", "_").replace("/", "_")
+    col = col.replace("%", "_pct").replace("+/-", "_net").replace("+", "_plus_")
+    col = col.replace("/", "_per_")
     col = re.sub(r"[^0-9a-zA-Z]+", "_", col)
     col = re.sub(r"_+", "_", col).strip("_")
     return col.lower()
+
+
+def _dedupe_columns(cols: list) -> list:
+    """Beberapa kolom asli masih bisa bentrok setelah snake_case (mis. 'xG' vs
+    'xG+/-' -> 'xg' vs 'xg_net'). Kolom pertama dipertahankan apa adanya,
+    duplikat berikutnya diberi suffix _2, _3, dst agar DataFrame tidak error."""
+    seen = {}
+    result = []
+    for c in cols:
+        if c not in seen:
+            seen[c] = 1
+            result.append(c)
+        else:
+            seen[c] += 1
+            result.append(f"{c}_{seen[c]}")
+    return result
 
 
 def _simplify_pos(raw) -> str:
@@ -95,11 +112,12 @@ def load_data(path: str = DATA_PATH) -> pd.DataFrame:
     df = pd.read_csv(path, encoding="utf-8-sig")
     df = df.drop(columns=[c for c in ("source_row", "Rk") if c in df.columns])
 
-    df.columns = [_snake_case(c) for c in df.columns]
+    df.columns = _dedupe_columns([_snake_case(c) for c in df.columns])
     df = df.rename(columns=RENAME_MAP)
 
     df["pos"] = df["pos_raw"].apply(_simplify_pos)
     df["league"] = df["league_raw"].apply(_simplify_league)
+    df = df.copy()  # defragmentasi setelah beberapa insert kolom di atas
 
     numeric_cols = [
         "minutes", "nineties", "goals", "assists", "xg", "npxg", "xag",
