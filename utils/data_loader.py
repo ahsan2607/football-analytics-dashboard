@@ -20,12 +20,13 @@ load_data() melakukan:
 Modul lain TIDAK BOLEH membaca CSV sendiri — selalu panggil load_data().
 """
 
+import os
 import re
 
 import pandas as pd
 import streamlit as st
 
-DATA_PATH = "data/players_data-2024_2025_cleansing.csv"
+DATA_PATH = "data/players_data.csv" if os.path.exists("data/players_data.csv") else "data/players_data-2024_2025_cleansing.csv"
 
 # kolom asli (setelah snake_case) -> nama standar yang dipakai di seluruh modul
 RENAME_MAP = {
@@ -120,9 +121,9 @@ def load_data(path: str = DATA_PATH) -> pd.DataFrame:
     df = df.copy()  # defragmentasi setelah beberapa insert kolom di atas
 
     numeric_cols = [
-        "minutes", "nineties", "goals", "assists", "xg", "npxg", "xag",
+        "age", "minutes", "nineties", "goals", "assists", "goals_assists", "xg", "npxg", "xag", "npxg_xag", "shots", "shots_on_target", "sca", "sca_per90", "gca", "gca_per90", "key_passes", "cmp", "att", "cmp_pct",
         "prog_carries", "prog_passes", "prog_receptions", "tackles",
-        "interceptions", "recoveries",
+        "interceptions", "tackles_interceptions", "clearances", "blocks", "recoveries", "def_3rd", "mid_3rd", "att_3rd", "err",
     ]
     for col in numeric_cols:
         if col in df.columns:
