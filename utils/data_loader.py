@@ -26,7 +26,7 @@ import re
 import pandas as pd
 import streamlit as st
 
-DATA_PATH = "data/players_data.csv" if os.path.exists("data/players_data.csv") else "data/players_data-2024_2025_cleansing.csv"
+DATA_PATH = "data/players_data.csv"
 
 # kolom asli (setelah snake_case) -> nama standar yang dipakai di seluruh modul
 RENAME_MAP = {
