@@ -6,6 +6,14 @@ Kontrak: satu fungsi render(df) yang mengisi seluruh isi tab ini.
 Gunakan PLOTLY_TEMPLATE, COLORS, COLOR_SEQ dari utils/theme.py untuk semua grafik.
 """
 
+import sys
+from pathlib import Path
+
+# Pastikan root proyek terdaftar di sys.path agar 'utils' selalu dapat diimpor
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -240,4 +248,13 @@ def render(df: pd.DataFrame) -> None:
         )
 
     st.info("**Key Insight**\n\n" + " ".join(insights))
+
+
+if __name__ == "__main__":
+    from utils.data_loader import load_data
+    st.set_page_config(page_title="Executive Overview", page_icon="🌐", layout="wide")
+    st.title("⚽ EuroScout AI — League Overview")
+    _df = load_data()
+    render(_df)
+
 

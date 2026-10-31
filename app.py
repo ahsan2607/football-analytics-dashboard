@@ -6,6 +6,14 @@ minimal menit main), lalu merender tiap modul di tab masing-masing. Semua
 logika analisis ada di modules/*.py — app.py hanya melakukan orkestrasi (Anggota 5).
 """
 
+import sys
+from pathlib import Path
+
+# Pastikan root proyek terdaftar di sys.path
+_ROOT = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import streamlit as st
 
 from utils.data_loader import load_data
