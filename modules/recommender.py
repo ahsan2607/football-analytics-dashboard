@@ -11,6 +11,13 @@ Fitur "cari pemain mirip [Player X]" lintas liga:
   ulang setiap klik.
 """
 
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go

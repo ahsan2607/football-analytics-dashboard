@@ -3,14 +3,22 @@ Performance Intelligence Platform.
 
 Kerangka aplikasi: memuat data, menyediakan filter global (liga, posisi,
 minimal menit main), lalu merender tiap modul di tab masing-masing. Semua
-logika analisis ada di modules/*.py — app.py hanya melakukan orkestrasi.
+logika analisis ada di modules/*.py — app.py hanya melakukan orkestrasi (Anggota 5).
 """
+
+import sys
+from pathlib import Path
+
+# Pastikan root proyek terdaftar di sys.path
+_ROOT = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 import streamlit as st
 
 from utils.data_loader import load_data
 from utils.theme import COLORS
-from modules import attacking, playmaking, defensive, recommender
+from modules import overview, attacking, playmaking, defensive, recommender
 
 st.set_page_config(
     page_title="EuroScout AI",
@@ -49,9 +57,18 @@ filtered_df = df[
 
 st.caption(f"{len(filtered_df)} players match the current filters.")
 
-tab_attacking, tab_playmaking, tab_defensive, tab_recommender = st.tabs(
-    ["Attacking & Finishing", "Passing & Playmaking", "Defensive Workrate", "ML Scouting & Similarity"]
+tab_overview, tab_attacking, tab_playmaking, tab_defensive, tab_recommender = st.tabs(
+    [
+        "🌐 League Overview",
+        "⚡ Attacking & Finishing",
+        "🎯 Passing & Playmaking",
+        "🛡️ Defensive Workrate",
+        "🔍 ML Scouting & Similarity",
+    ]
 )
+
+with tab_overview:
+    overview.render(filtered_df)
 
 with tab_attacking:
     attacking.render(filtered_df)
